@@ -600,7 +600,6 @@ const DEFAULT_REVIEWS: Review[] = [
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000 + 2 * 60 * 1000).toISOString()
   }
 ];
-
 // Helper to check for client-side environment
 const getInitialState = () => {
   if (typeof window === 'undefined') {
@@ -618,12 +617,18 @@ const getInitialState = () => {
   const saved = localStorage.getItem('agmarket_state');
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // Auto-migrate to insert new multi-farmer products & users if they are missing
+      if (!parsed.products || parsed.products.length < DEFAULT_PRODUCTS.length) {
+        parsed.products = DEFAULT_PRODUCTS;
+        parsed.users = DEFAULT_USERS;
+        localStorage.setItem('agmarket_state', JSON.stringify(parsed));
+      }
+      return parsed;
     } catch (e) {
       console.error("Error parsing saved state, using defaults", e);
     }
   }
-  
   return {
     currentUser: DEFAULT_USERS[2], // Default to John Doe
     users: DEFAULT_USERS,
