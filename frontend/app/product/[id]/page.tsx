@@ -31,13 +31,15 @@ export default function ProductDetailPage() {
     reviews, 
     addReview 
   } = useAppStore();
-
   const [mounted, setMounted] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  
+  // Quantities dictionary by product ID
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   
   // Chat Dialog state
   const [chatOpen, setChatOpen] = useState(false);
+  const [selectedSellerForChat, setSelectedSellerForChat] = useState<Product | null>(null);
   const [chatMessage, setChatMessage] = useState('');
   const [chatSent, setChatSent] = useState(false);
 
@@ -55,6 +57,31 @@ export default function ProductDetailPage() {
       }
     }
   }, [id, products]);
+
+  // Find all sellers offering this product name (case-insensitive)
+  const allSellers = product
+    ? products.filter(p => p.name.toLowerCase() === product.name.toLowerCase() && p.status === 'published')
+    : [];
+
+  const handleIncrement = (prodId: string, maxQty: number) => {
+    setQuantities(prev => ({
+      ...prev,
+      [prodId]: Math.min(maxQty, (prev[prodId] || 1) + 1)
+    }));
+  };
+
+  const handleDecrement = (prodId: string) => {
+    setQuantities(prev => ({
+      ...prev,
+      [prodId]: Math.max(1, (prev[prodId] || 1) - 1)
+    }));
+  };
+
+  const handleAddToCart = (p: Product) => {
+    const qty = quantities[p.id] || 1;
+    addToCart(p, qty);
+    alert(`Added ${qty} ${p.unit}(s) of ${p.name} from ${p.farmerName} to your basket!`);
+  };
 
   if (!mounted) {
     return (
@@ -91,23 +118,18 @@ export default function ProductDetailPage() {
   const relatedProducts = products
     .filter(p => p.category === product.category && p.id !== product.id && p.status === 'published')
     .slice(0, 3);
-
-  // Handle Add to Cart
-  const handleAddToCart = () => {
-    addToCart(product, quantity);
-    alert(`Added ${quantity} ${product.unit}(s) of ${product.name} to your basket!`);
-  };
-
   // Handle Chat Message
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatMessage.trim()) return;
 
+    const chatTarget = selectedSellerForChat || product;
+
     sendMessage(
-      product.farmerId, 
+      chatTarget.farmerId, 
       chatMessage, 
-      product.id, 
-      product.name
+      chatTarget.id, 
+      chatTarget.name
     );
     
     setChatSent(true);
@@ -208,13 +230,10 @@ export default function ProductDetailPage() {
               </span>
             </div>
           </div>
-
-          <div className="border-y border-zinc-200 py-4 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-zinc-900">
-              ₦{product.price.toLocaleString()}
-            </span>
-            <span className="text-sm font-semibold text-zinc-500">
-              per {product.unit}
+          <div className="border-y border-zinc-200 py-4 flex items-center gap-2 bg-emerald-50/50 px-4 rounded-xl border border-emerald-100">
+            <Store className="h-5 w-5 text-emerald-600" />
+            <span className="text-sm font-bold text-emerald-800">
+              Available from {allSellers.length} verified farmer{allSellers.length > 1 ? 's' : ''}. Compare prices and buy directly below!
             </span>
           </div>
 
@@ -225,84 +244,125 @@ export default function ProductDetailPage() {
             </p>
           </div>
 
-          {/* Cart & Chat buttons */}
+          {/* Comparison Offers List */}
           <div className="border-t border-zinc-200 pt-6 space-y-4">
-            {product.quantity > 0 ? (
-              <div className="flex flex-col sm:flex-row gap-4">
+            <h3 className="text-xs font-bold text-zinc-950 uppercase tracking-wider">Compare Farmer Offers & Prices</h3>
+            <div className="space-y-4">
+              {allSellers.map((sellerProduct) => {
+                const sellerUser = useAppStore.getState().users.find(u => u.id === sellerProduct.farmerId);
+                const qty = quantities[sellerProduct.id] || 1;
                 
-                {/* Quantity selector */}
-                <div className="flex items-center border border-zinc-300 rounded-lg bg-white h-12 justify-between px-3 w-full sm:w-36">
-                  <span className="text-xs font-bold text-zinc-500 uppercase">Qty</span>
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="text-zinc-500 hover:text-emerald-600 font-bold p-1"
-                    >
-                      -
-                    </button>
-                    <span className="font-bold text-zinc-900 text-sm">{quantity}</span>
-                    <button 
-                      onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
-                      className="text-zinc-500 hover:text-emerald-600 font-bold p-1"
-                    >
-                      +
-                    </button>
+                return (
+                  <div 
+                    key={sellerProduct.id}
+                    className="border border-zinc-200 rounded-2xl p-4 bg-zinc-50 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white hover:border-zinc-300 transition-all shadow-xs"
+                  >
+                    {/* Farmer Identity */}
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={sellerUser?.logoUrl || 'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=150&auto=format&fit=crop'}
+                        alt={sellerProduct.farmerName}
+                        className="h-10 w-10 rounded-xl object-cover border border-zinc-200 bg-white"
+                      />
+                      <div>
+                        <div className="flex items-center gap-1">
+                          <Link href={`/store/${sellerProduct.farmerSlug}`} className="font-bold text-zinc-900 text-sm hover:text-emerald-600 transition-colors">
+                            {sellerProduct.farmerName}
+                          </Link>
+                          {sellerUser?.isVerified && (
+                            <ShieldCheck className="h-4 w-4 text-emerald-600 fill-emerald-50" />
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-400 font-medium flex items-center gap-0.5 mt-0.5">
+                          <MapPin className="h-3 w-3 text-emerald-600" />
+                          {sellerProduct.location.split(',')[0]}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Price & Inventory */}
+                    <div className="flex flex-col">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-zinc-900">
+                          ₦{sellerProduct.price.toLocaleString()}
+                        </span>
+                        <span className="text-xs font-semibold text-zinc-500">
+                          / {sellerProduct.unit}
+                        </span>
+                      </div>
+                      <span className={`text-[10px] font-bold mt-1 inline-block ${sellerProduct.quantity > 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                        {sellerProduct.quantity > 0 ? `${sellerProduct.quantity} in stock` : 'Out of stock'}
+                      </span>
+                    </div>
+
+                    {/* Quantity & Actions */}
+                    {sellerProduct.quantity > 0 ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Quantity Selector */}
+                        <div className="flex items-center border border-zinc-300 rounded-lg bg-white h-9 px-2">
+                          <button 
+                            type="button"
+                            onClick={() => handleDecrement(sellerProduct.id)}
+                            className="text-zinc-500 hover:text-emerald-600 font-bold px-1.5 text-sm"
+                          >
+                            -
+                          </button>
+                          <span className="font-bold text-zinc-900 text-xs px-2 min-w-[20px] text-center">{qty}</span>
+                          <button 
+                            type="button"
+                            onClick={() => handleIncrement(sellerProduct.id, sellerProduct.quantity)}
+                            className="text-zinc-500 hover:text-emerald-600 font-bold px-1.5 text-sm"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Add to basket */}
+                        <button
+                          type="button"
+                          onClick={() => handleAddToCart(sellerProduct)}
+                          className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 h-9 shadow-sm transition-colors flex items-center gap-1.5"
+                        >
+                          <ShoppingCart className="h-3.5 w-3.5" />
+                          Buy
+                        </button>
+
+                        {/* Chat farmer */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSellerForChat(sellerProduct);
+                            setChatOpen(true);
+                          }}
+                          className="rounded-lg border border-zinc-300 hover:bg-zinc-150 text-zinc-700 font-semibold text-xs px-3 h-9 shadow-sm transition-colors flex items-center gap-1.5 bg-white"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-zinc-400" />
+                          Chat
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-zinc-400 px-3 py-1.5 rounded-lg bg-zinc-100">
+                          Sold Out
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedSellerForChat(sellerProduct);
+                            setChatOpen(true);
+                          }}
+                          className="rounded-lg border border-zinc-300 hover:bg-zinc-150 text-zinc-700 font-semibold text-xs px-3 h-9 shadow-sm transition-colors flex items-center gap-1.5 bg-white"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5 text-zinc-400" />
+                          Chat
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                {/* Add Button */}
-                <button
-                  onClick={handleAddToCart}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-6 h-12 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition-colors"
-                >
-                  <ShoppingCart className="h-4.5 w-4.5" />
-                  Add to Basket
-                </button>
-
-              </div>
-            ) : (
-              <div className="bg-red-50 border border-red-100 text-red-700 rounded-xl p-4 text-center font-semibold text-sm">
-                This item is currently out of stock. Check back later!
-              </div>
-            )}
-
-            <button
-              onClick={() => setChatOpen(true)}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-6 h-12 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50 transition-colors"
-            >
-              <MessageSquare className="h-4.5 w-4.5 text-zinc-500" />
-              Chat with Farmer
-            </button>
-          </div>
-
-          {/* Farmer Widget Card */}
-          <div className="border border-zinc-200 rounded-2xl p-5 bg-zinc-50 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img
-                src={seller?.logoUrl || 'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=150&auto=format&fit=crop'}
-                alt={product.farmerName}
-                className="h-12 w-12 rounded-xl object-cover border border-zinc-200"
-              />
-              <div>
-                <div className="flex items-center gap-1">
-                  <h4 className="font-bold text-zinc-900 text-sm">{product.farmerName}</h4>
-                  {seller?.isVerified && (
-                    <ShieldCheck className="h-4 w-4 text-emerald-600 fill-emerald-50" />
-                  )}
-                </div>
-                <p className="text-xs text-zinc-500">{product.location.split(',')[0]}</p>
-              </div>
+                );
+              })}
             </div>
-            
-            <Link
-              href={`/store/${product.farmerSlug}`}
-              className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700"
-            >
-              Visit Farm Store
-              <ChevronRight className="h-4 w-4" />
-            </Link>
           </div>
-
         </div>
       </div>
 
@@ -428,13 +488,22 @@ export default function ProductDetailPage() {
 
             <div className="flex items-center gap-3 border-b border-zinc-100 pb-4 mb-4">
               <img
-                src={seller?.logoUrl || 'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=150&auto=format&fit=crop'}
-                alt={product.farmerName}
-                className="h-10 w-10 rounded-lg object-cover"
+                src={
+                  (selectedSellerForChat
+                    ? useAppStore.getState().users.find(u => u.id === selectedSellerForChat.farmerId)?.logoUrl
+                    : seller?.logoUrl) || 
+                  'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=150&auto=format&fit=crop'
+                }
+                alt={selectedSellerForChat ? selectedSellerForChat.farmerName : product.farmerName}
+                className="h-10 w-10 rounded-lg object-cover bg-zinc-50 border border-zinc-200"
               />
               <div>
-                <h3 className="font-bold text-zinc-900 text-sm">Message {product.farmerName}</h3>
-                <p className="text-[11px] text-zinc-500 font-medium">Topic: {product.name}</p>
+                <h3 className="font-bold text-zinc-900 text-sm">
+                  Message {selectedSellerForChat ? selectedSellerForChat.farmerName : product.farmerName}
+                </h3>
+                <p className="text-[11px] text-zinc-500 font-medium">
+                  Topic: {selectedSellerForChat ? selectedSellerForChat.name : product.name}
+                </p>
               </div>
             </div>
 
@@ -451,13 +520,12 @@ export default function ProductDetailPage() {
                   <textarea
                     required
                     rows={4}
-                    placeholder={`e.g. Hi ${product.farmerName}, I'm interested in buying this. Do you offer bulk discounts or custom logistics?`}
+                    placeholder={`e.g. Hi ${selectedSellerForChat ? selectedSellerForChat.farmerName : product.farmerName}, I'm interested in buying this. Do you offer bulk discounts or custom logistics?`}
                     value={chatMessage}
                     onChange={(e) => setChatMessage(e.target.value)}
                     className="w-full rounded-lg border border-zinc-300 p-3 text-sm outline-none focus:border-emerald-600"
                   />
                 </div>
-                
                 <div className="flex gap-3 justify-end pt-2">
                   <button
                     type="button"

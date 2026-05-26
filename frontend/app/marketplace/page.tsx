@@ -65,18 +65,52 @@ function MarketplaceContent() {
   // Derived filter arrays
   const categories = ['All', 'Grains', 'Vegetables', 'Livestock & Poultry', 'Roots & Tubers', 'Fruits'];
   const locations = ['All', 'Oyo State, Nigeria', 'Enugu State, Nigeria'];
-
-  // Filter & Sort logic
+  // Filter logic
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           product.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     const matchesLocation = selectedLocation === 'All' || product.location === selectedLocation;
     return matchesSearch && matchesCategory && matchesLocation && product.status === 'published';
+  });
+
+  // Group filtered products by name (case-insensitive) to treat identical items as a single catalog item
+  const groupedProducts: { [key: string]: Product[] } = {};
+  filteredProducts.forEach(product => {
+    const key = product.name.trim().toLowerCase();
+    if (!groupedProducts[key]) {
+      groupedProducts[key] = [];
+    }
+    groupedProducts[key].push(product);
+  });
+
+  // Create aggregated catalog list
+  const catalogProducts = Object.values(groupedProducts).map(group => {
+    const rep = group[0]; // Representative product
+    const sellersCount = group.length;
+    const allPrices = group.map(p => p.price);
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+    const totalStock = group.reduce((sum, p) => sum + p.quantity, 0);
+
+    return {
+      id: rep.id,
+      name: rep.name,
+      category: rep.category,
+      description: rep.description,
+      images: rep.images,
+      location: rep.location,
+      sellersCount,
+      minPrice,
+      maxPrice,
+      totalStock,
+      rep,
+      allSellers: group
+    };
   }).sort((a, b) => {
-    if (sortBy === 'price-asc') return a.price - b.price;
-    if (sortBy === 'price-desc') return b.price - a.price;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // Newest
+    if (sortBy === 'price-asc') return a.minPrice - b.minPrice;
+    if (sortBy === 'price-desc') return b.maxPrice - a.maxPrice;
+    return new Date(b.rep.createdAt).getTime() - new Date(a.rep.createdAt).getTime(); // Newest rep
   });
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -197,13 +231,13 @@ function MarketplaceContent() {
             Filters & Sort
           </button>
           <span className="text-xs text-zinc-500 font-medium">
-            Showing {filteredProducts.length} results
+            Showing {catalogProducts.length} unique produce types
           </span>
         </div>
 
         {/* PRODUCTS CATALOG GRID */}
         <main className="lg:col-span-3">
-          {filteredProducts.length === 0 ? (
+          {catalogProducts.length === 0 ? (
             <div className="border border-dashed border-zinc-300 rounded-2xl p-12 text-center space-y-4">
               <p className="text-zinc-500 text-sm">No farm products match your filter options.</p>
               <button
@@ -215,91 +249,56 @@ function MarketplaceContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => {
-                const inCart = cart.find(item => item.product.id === product.id);
+              {catalogProducts.map((catalogItem) => {
                 return (
                   <div 
-                    key={product.id}
-                    className="group border border-zinc-200 rounded-2xl bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                    key={catalogItem.id}
+                    className="group border border-zinc-200 rounded-2xl bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
                   >
-                    {/* Image Area */}
-                    <Link href={`/product/${product.id}`} className="block h-48 overflow-hidden bg-zinc-50 relative">
-                      <img
-                        src={product.images[0]}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                      />
-                      <div className="absolute top-3 left-3 bg-white border border-zinc-200 rounded-full px-2 py-0.5 text-[10px] font-bold text-zinc-700 uppercase">
-                        {product.category}
-                      </div>
-                    </Link>
+                    <div>
+                      {/* Image Area */}
+                      <Link href={`/product/${catalogItem.id}`} className="block h-48 overflow-hidden bg-zinc-50 relative">
+                        <img
+                          src={catalogItem.images[0]}
+                          alt={catalogItem.name}
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                        />
+                        <div className="absolute top-3 left-3 bg-white border border-zinc-200 rounded-full px-2 py-0.5 text-[10px] font-bold text-zinc-700 uppercase">
+                          {catalogItem.category}
+                        </div>
+                      </Link>
 
-                    {/* Metadata */}
-                    <div className="p-4 space-y-3">
-                      <div>
+                      {/* Metadata */}
+                      <div className="p-4 space-y-2">
                         <div className="flex items-center gap-1 text-[11px] font-semibold text-zinc-500">
-                          <Link href={`/store/${product.farmerSlug}`} className="hover:text-emerald-600 transition-colors flex items-center gap-0.5">
+                          <span className="flex items-center gap-0.5 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold">
                             <Store className="h-3 w-3" />
-                            {product.farmerName}
-                          </Link>
-                          <span className="inline-block h-1 w-1 rounded-full bg-zinc-300"></span>
-                          <span className="flex items-center gap-0.5 text-zinc-400">
-                            <MapPin className="h-3 w-3" />
-                            {product.location.split(',')[0]}
+                            {catalogItem.sellersCount} Farmer{catalogItem.sellersCount > 1 ? 's' : ''} Selling
                           </span>
                         </div>
 
-                        <Link href={`/product/${product.id}`} className="block mt-1">
-                          <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors truncate">
-                            {product.name}
+                        <Link href={`/product/${catalogItem.id}`} className="block mt-1">
+                          <h3 className="font-bold text-zinc-900 group-hover:text-emerald-600 transition-colors text-base truncate">
+                            {catalogItem.name}
                           </h3>
                         </Link>
+                        
+                        <p className="text-xs text-zinc-500 line-clamp-2 mt-1">
+                          {catalogItem.description}
+                        </p>
                       </div>
+                    </div>
 
-                      {/* Pricing */}
-                      <div className="flex items-baseline justify-between border-t border-zinc-100 pt-3">
-                        <div>
-                          <span className="text-lg font-extrabold text-zinc-900">
-                            ₦{product.price.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-zinc-500 font-medium ml-1">
-                            / {product.unit}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
-                          {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
-                        </span>
-                      </div>
-
-                      {/* Add button */}
-                      <div className="pt-1 flex gap-2">
+                    {/* Bottom Action Area */}
+                    <div className="p-4 pt-0 border-t border-zinc-100 mt-2">
+                      <div className="pt-3">
                         <Link
-                          href={`/product/${product.id}`}
-                          className="flex-1 text-center rounded-lg border border-zinc-200 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                          href={`/product/${catalogItem.id}`}
+                          className="w-full text-center rounded-lg bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm transition-colors flex items-center justify-center gap-1.5"
                         >
-                          Details
+                          Compare Prices & Buy
                         </Link>
-                        {product.quantity > 0 ? (
-                          <button
-                            onClick={() => addToCart(product, 1)}
-                            className="flex items-center justify-center gap-1 bg-emerald-600 text-white rounded-lg px-3 py-2 hover:bg-emerald-700 transition-colors"
-                            aria-label="Add to Cart"
-                          >
-                            <ShoppingCart className="h-4 w-4" />
-                            <span className="text-xs font-semibold">
-                              {inCart ? `Add (${inCart.quantity})` : 'Add'}
-                            </span>
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="bg-zinc-100 text-zinc-400 cursor-not-allowed rounded-lg px-3 py-2 text-xs font-semibold"
-                          >
-                            Sold Out
-                          </button>
-                        )}
                       </div>
-
                     </div>
                   </div>
                 );

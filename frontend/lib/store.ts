@@ -275,6 +275,54 @@ const DEFAULT_PRODUCTS: Product[] = [
     status: 'published',
     images: ['https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=600&auto=format&fit=crop'],
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'p7',
+    farmerId: 'f2',
+    farmerName: 'Chioma Fresh Poultry & Eggs',
+    farmerSlug: 'chioma-poultry',
+    name: 'Sweet White Yam',
+    category: 'Roots & Tubers',
+    description: 'Dry, sweet white yams from Enugu farm gates. Exceptionally high yield, fresh and perfect for pounding.',
+    price: 2100,
+    quantity: 100,
+    unit: 'Tubers (Medium)',
+    location: 'Enugu State, Nigeria',
+    status: 'published',
+    images: ['https://images.unsplash.com/photo-1590165482129-1b8b27698780?w=600&auto=format&fit=crop'],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'p8',
+    farmerId: 'f2',
+    farmerName: 'Chioma Fresh Poultry & Eggs',
+    farmerSlug: 'chioma-poultry',
+    name: 'Premium Parboiled Rice',
+    category: 'Grains',
+    description: 'Fresh parboiled local rice, stone-free, double-washed. High swell factor and rich nutrition.',
+    price: 29500,
+    quantity: 60,
+    unit: '50kg Bag',
+    location: 'Enugu State, Nigeria',
+    status: 'published',
+    images: ['https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop'],
+    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'p9',
+    farmerId: 'f2',
+    farmerName: 'Chioma Fresh Poultry & Eggs',
+    farmerSlug: 'chioma-poultry',
+    name: 'Fresh Vine Tomatoes',
+    category: 'Vegetables',
+    description: 'Plump and organic local vine tomatoes, picked fresh. Handpicked and graded in baskets.',
+    price: 9000,
+    quantity: 20,
+    unit: 'Large Basket',
+    location: 'Enugu State, Nigeria',
+    status: 'published',
+    images: ['https://images.unsplash.com/photo-1595855759920-86582396756a?w=600&auto=format&fit=crop'],
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
   }
 ];
 

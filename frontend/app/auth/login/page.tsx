@@ -59,14 +59,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-zinc-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       
       <div className="sm:mx-auto sm:w-full sm:max-w-md space-y-4 text-center">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
-            <ShoppingBag className="h-5.5 w-5.5" />
-          </div>
-          <span className="font-serif text-2xl font-bold tracking-tight text-zinc-900">
-            AGMarket
-          </span>
-        </Link>
+        
         <h2 className="font-serif text-3xl font-bold text-zinc-900">Welcome Back</h2>
         <p className="text-sm text-zinc-500">Sign in to your farm store or marketplace account</p>
       </div>
